@@ -4,5 +4,6 @@ docker run \
        --name metodo \
        --rm \
        -ti \
+       --workdir /app \
        libgit2 bash
 

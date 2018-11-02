@@ -10,17 +10,17 @@ namespace Metodo.CommandLine
         {
             var repositoryPath = args[0];
             Console.WriteLine($"Repository path: {repositoryPath}");
-            PrintLog(repositoryPath);
-        }
-
-        private static void PrintLog(string repositoryPath)
-        {
             using (var repo = new Repository(repositoryPath))
             {
-                foreach (var c in repo.Commits.Take(15))
-                {
-                    Console.WriteLine($"commit {c.Id} Author: {c.Author.Name} <{c.Author.Email}>");
-                }
+                PrintLog(repo);
+            }
+        }
+
+        private static void PrintLog(Repository repo)
+        {
+            foreach (var c in repo.Commits.Take(15))
+            {
+                Console.WriteLine($"commit {c.Id} Author: {c.Author.Name} <{c.Author.Email}>");
             }
         }
     }
