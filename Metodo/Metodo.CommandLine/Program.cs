@@ -15,7 +15,7 @@ namespace Metodo.CommandLine
             {
                 var totalCommits = repo.Commits.Count();
                 var count = 0;
-                var report = repo.Commits.AsParallel().Aggregate(
+                var report = repo.Commits.Aggregate(
                     new Dictionary<string, IEnumerable<string>>(),
                     (a, c) =>
                     {
@@ -23,16 +23,19 @@ namespace Metodo.CommandLine
                         var r = GetAuthorsPerFile(repo, c);
                         var author = r.Item1;
                         var files = r.Item2;
-                        if(!a.ContainsKey(author))
-                            a.Add(author, new List<string>());
-                        a[author] = a[author].Concat(files).Distinct();
+                        foreach (var file in files)
+                        {
+                            if(!a.ContainsKey(file))
+                                a.Add(file, new List<string>());
+                            a[file] = a[file].Append(author).Distinct();
+                        }
                         return a;
                     });
 
 
-                foreach (var kv in report)
+                foreach (var kv in report.Where(r => r.Value.Count() > 1))
                 {
-                    Console.WriteLine($"Author: {kv.Key}");
+                    Console.WriteLine($"File: {kv.Key}");
                     kv.Value.ToList().ForEach(v => 
                         Console.WriteLine($"  {v}"));
                 }
