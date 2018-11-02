@@ -7,20 +7,35 @@ namespace Metodo.CommandLine
 {
     internal static class Program
     {
-        private static void Main(string[] args)
+        private static Dictionary<string, Action<Repository>> _actions = new Dictionary<string, Action<Repository>>
         {
-            var repositoryPath = args[0];
+            ["--authors"] = PrintAuthorsPerFile
+        };
+        
+        private static int Main(string[] args)
+        {
+            var repositoryPath = args[1];
             Console.WriteLine($"Repository path: {repositoryPath}");
             using (var repo = new Repository(repositoryPath))
             {
-                var report = AuthorsPerFiles(repo);
+                var action = _actions.FirstOrDefault(a => a.Key == args[0]).Value;
+                if (action == null)
+                    return -1;
 
-                foreach (var kv in report.Where(r => r.Value.Count() > 1))
-                {
-                    Console.WriteLine($"File: {kv.Key}");
-                    kv.Value.ToList().ForEach(v => 
-                        Console.WriteLine($"\t\t{v}"));
-                }
+                action(repo);
+                return 0;
+            }
+        }
+
+        private static void PrintAuthorsPerFile(Repository repo)
+        {
+            var report = AuthorsPerFiles(repo);
+
+            foreach (var kv in report.Where(r => r.Value.Count() > 1))
+            {
+                Console.WriteLine($"File: {kv.Key}");
+                kv.Value.ToList().ForEach(v =>
+                    Console.WriteLine($"\t\t{v}"));
             }
         }
 
