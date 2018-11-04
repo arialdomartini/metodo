@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using LibGit2Sharp;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Metodo.CommandLine
 {
@@ -34,20 +38,66 @@ namespace Metodo.CommandLine
 
         private static void PrintMethods(Repository repo)
         {
-            repo.Commits.Take(repo.Commits.Count() -1 ).ToList().ForEach(commit =>
-            {
-                Console.WriteLine($"Commit: {commit.Sha}");
-                var changes = repo.Diff.Compare<Patch>(commit.Parents.First().Tree, commit.Tree);
+            var allButTheFirstCommit = repo.Commits.Take(repo.Commits.Count() -1);
+            
+            allButTheFirstCommit.ToList().ForEach(
+                commit => { PrintAffectedLines(repo, commit); });
+        }
 
-                changes.ToList().ForEach(c =>
+        private static void PrintAffectedLines(Repository repo, Commit commit)
+        {
+            Console.WriteLine($"Commit: {commit.Sha}");
+            var changes = repo.Diff.Compare<Patch>(commit.Parents.First().Tree, commit.Tree);
+
+            var changedFiles = repo.Diff.Compare<TreeChanges>(commit.Parents.First().Tree, commit.Tree);
+       
+            changes.ToList().ForEach(change =>
+            {
+                var treeEntryChanges = changedFiles.First(c => c.Path == change.Path);
+
+                if (treeEntryChanges.Path.EndsWith(".cs"))
                 {
-                    var spans = Span.From(c.Patch);
-                    spans.ToList().ForEach(s =>
-                        Console.WriteLine($"-{s.OldFrom}, {s.NewTo} +{s.NewFrom}, {s.NewTo}"));
-                });
+                    var blob = repo.Lookup<Blob>(treeEntryChanges.Oid);
+                    if (blob != null)
+                    {
+                        Console.WriteLine($"\t\t{treeEntryChanges.Path}");
+                        var file = blob.GetContentText();
+                        //                    Console.WriteLine(file);
+                        var spans = Span.From(change.Patch);
+                        spans.ToList().ForEach(s =>
+                            Console.WriteLine($"\t\t\t-{s.OldFrom}, {s.NewTo} +{s.NewFrom}, {s.NewTo}"));
+                    }
+                }
             });
         }
 
+        public static void PrintMethodsInfo(List<string> args)
+        {
+            var filePath = args.First();
+            var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(filePath));
+            var root = tree.GetCompilationUnitRoot();
+
+            var methods = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
+            foreach (var m in methods)
+            {
+                var d = new Dictionary<string, string>
+                {
+                    {"method", m.Identifier.Text},
+                    {"body start", m.GetLocation().GetLineSpan().StartLinePosition.Line.ToString()},
+                    {"body end", m.GetLocation().GetLineSpan().EndLinePosition.Line.ToString()}
+                };
+
+                var sb = new StringBuilder();
+                foreach (var kv in d)
+                {
+                    sb.Append($"{kv.Key}: {kv.Value}        ");
+                }
+
+                Console.WriteLine(sb.ToString());
+            }
+
+            Console.ReadLine();
+        }
         
         private static void PrintAuthorsPerFile(Repository repo)
         {
